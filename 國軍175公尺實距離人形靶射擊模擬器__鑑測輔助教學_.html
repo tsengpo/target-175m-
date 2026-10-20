@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>國軍175公尺實距離人形靶射擊模擬器 (鑑測輔助教學)</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+    body {
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .crosshair-cursor {
+      cursor: crosshair;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1f2937;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #4b5563;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased overflow-x-hidden">
+
+  <!-- Header -->
+  <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-40 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-900/40">
+          175
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-wide text-white flex items-center gap-2">
+            國軍175公尺實距離人形靶模擬器
+            <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-normal">T91 / T65K2 射擊鑑測</span>
+          </h1>
+          <p class="text-xs text-slate-400">覘孔、準星、人型靶三點一線實境模擬與倒靶回饋</p>
+        </div>
+      </div>
+
+      <div class="flex items-center flex-wrap gap-2">
+        <!-- Mode Switcher -->
+        <div class="bg-slate-800/80 p-0.5 rounded-lg border border-slate-700 flex text-xs">
+          <button id="modePracticeBtn" class="px-3 py-1.5 rounded-md font-medium bg-emerald-600 text-white transition-colors">
+            自由練習
+          </button>
+          <button id="modeQualBtn" class="px-3 py-1.5 rounded-md font-medium text-slate-300 hover:text-white transition-colors">
+            6發鑑測模式
+          </button>
+        </div>
+
+        <!-- Audio Toggle -->
+        <button id="audioToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-medium text-slate-300 transition-colors">
+          <span id="audioIcon">🔊</span>
+          <span id="audioText">音效：開啟</span>
+        </button>
+
+        <!-- Help / Tips Modal trigger -->
+        <button id="openGuideBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/40 rounded-lg text-xs font-semibold text-amber-300 transition-colors">
+          <span>🎯</span>
+          <span>瞄準口訣與歸零要領</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+    <!-- Left / Center: Shooting Range Simulation (8 cols on lg) -->
+    <div class="lg:col-span-8 flex flex-col gap-3">
+      
+      <!-- Range Viewport Container -->
+      <div class="relative bg-black rounded-xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col">
+        
+        <!-- Range HUD Top Overlay -->
+        <div class="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent z-20 flex items-center justify-between pointer-events-none text-xs">
+          <!-- Distance and Status -->
+          <div class="flex items-center gap-3">
+            <div class="bg-slate-900/80 backdrop-blur border border-slate-700 px-2.5 py-1 rounded flex items-center gap-2">
+              <span class="text-slate-400">距離:</span>
+              <span class="font-bold text-amber-400">175 公尺</span>
+            </div>
+            <div class="bg-slate-900/80 backdrop-blur border border-slate-700 px-2.5 py-1 rounded flex items-center gap-2">
+              <span class="text-slate-400">靶況:</span>
+              <span id="targetStatusText" class="font-bold text-emerald-400">起靶中 (等待射擊)</span>
+            </div>
+            <div id="windIndicator" class="bg-slate-900/80 backdrop-blur border border-slate-700 px-2.5 py-1 rounded flex items-center gap-2">
+              <span class="text-slate-400">風向:</span>
+              <span id="windText" class="font-semibold text-sky-400">無風 (0 m/s)</span>
+            </div>
+          </div>
+
+          <!-- Ammo / Score counter -->
+          <div class="flex items-center gap-2">
+            <div id="qualAmmoBox" class="hidden bg-slate-900/80 backdrop-blur border border-slate-700 px-2.5 py-1 rounded items-center gap-1.5">
+              <span class="text-slate-400">鑑測彈數:</span>
+              <span id="qualAmmoCount" class="font-bold text-yellow-400">6 / 6</span>
+            </div>
+            <div class="bg-slate-900/80 backdrop-blur border border-slate-700 px-2.5 py-1 rounded flex items-center gap-1.5">
+              <span class="text-slate-400">總發數:</span>
+              <span id="shotsFiredCount" class="font-bold text-white">0</span>
+              <span class="text-slate-500">|</span>
+              <span class="text-slate-400">中靶:</span>
+              <span id="hitsCount" class="font-bold text-emerald-400">0</span>
+              <span class="text-slate-500">|</span>
+              <span class="text-slate-400">命中率:</span>
+              <span id="accuracyPct" class="font-bold text-sky-400">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas Element -->
+        <div class="relative w-full aspect-[16/10] sm:aspect-[16/9] min-h-[360px] max-h-[580px] bg-slate-950 flex items-center justify-center overflow-hidden">
+          <canvas id="rangeCanvas" class="w-full h-full block crosshair-cursor"></canvas>
+          
+          <!-- Hit / Knockdown Banner Notification -->
+          <div id="hitNotification" class="absolute top-16 left-1/2 -translate-x-1/2 opacity-0 pointer-events-none transition-all duration-300 transform -translate-y-2 z-30">
+            <div id="hitBadge" class="px-5 py-2 rounded-full font-black text-sm tracking-wider shadow-2xl flex items-center gap-2 bg-emerald-600 text-white border-2 border-emerald-400">
+              <span id="hitIcon">💥</span>
+              <span id="hitMessage">中靶！目標倒靶！</span>
+            </div>
+          </div>
+
+          <!-- Hold Breath Bar Overlay (Repositioned to top-left) -->
+          <div class="absolute top-14 left-3 sm:left-4 z-20 pointer-events-none flex flex-col gap-1 w-32 bg-slate-900/85 backdrop-blur px-2.5 py-1.5 rounded-lg border border-slate-700/80 shadow-md">
+            <div class="flex justify-between text-[10px] font-bold text-slate-300">
+              <span>🫁 閉氣穩定</span>
+              <span id="breathPctText" class="text-emerald-400">100%</span>
+            </div>
+            <div class="w-full bg-slate-950 border border-slate-700 h-1.5 rounded-full overflow-hidden">
+              <div id="breathBar" class="bg-gradient-to-r from-emerald-500 to-sky-400 h-full w-full transition-all duration-75"></div>
+            </div>
+          </div>
+
+          <!-- Virtual Joystick Overlay on Bottom-Left -->
+          <div id="joystickZone" class="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-20 flex flex-col items-center select-none">
+            <div id="joystickBase" class="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-slate-900/85 backdrop-blur-md border-2 border-slate-500/80 shadow-2xl flex items-center justify-center cursor-grab active:cursor-grabbing touch-none ring-1 ring-white/10 hover:border-emerald-500/80 transition-colors">
+              <!-- Internal Crosshair & Guides -->
+              <div class="absolute inset-x-2 top-1/2 -translate-y-1/2 h-0.5 bg-slate-700/60 pointer-events-none"></div>
+              <div class="absolute inset-y-2 left-1/2 -translate-x-1/2 w-0.5 bg-slate-700/60 pointer-events-none"></div>
+              <div class="absolute w-14 h-14 sm:w-16 sm:h-16 rounded-full border border-dashed border-slate-600/50 pointer-events-none"></div>
+              <!-- Direction Labels -->
+              <span class="absolute top-1.5 text-[9px] font-bold text-slate-500 pointer-events-none">▲ 高</span>
+              <span class="absolute bottom-1.5 text-[9px] font-bold text-slate-500 pointer-events-none">▼ 低</span>
+              <span class="absolute left-1.5 text-[9px] font-bold text-slate-500 pointer-events-none">◄</span>
+              <span class="absolute right-1.5 text-[9px] font-bold text-slate-500 pointer-events-none">►</span>
+              <!-- Movable Thumbstick Knob -->
+              <div id="joystickKnob" class="absolute w-12 h-12 rounded-full bg-gradient-to-b from-slate-600 via-slate-700 to-slate-900 border-2 border-emerald-400 shadow-xl shadow-emerald-950/80 flex items-center justify-center pointer-events-none transform -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2 will-change-transform">
+                <div class="w-4 h-4 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]"></div>
+              </div>
+            </div>
+            <!-- Joystick Controls & Sensitivity Toggle -->
+            <div class="mt-1 flex items-center gap-1 bg-slate-900/90 backdrop-blur px-2 py-0.5 rounded-full border border-slate-700 text-[10px] text-slate-300 font-semibold shadow">
+              <span>🕹️ 準心搖桿</span>
+              <span class="text-slate-600">|</span>
+              <button id="toggleSensitivityBtn" class="text-emerald-400 hover:text-emerald-300 underline font-bold cursor-pointer">
+                標準速度
+              </button>
+            </div>
+          </div>
+
+          <!-- Mobile / On-Screen Trigger Button -->
+          <div class="absolute bottom-3 right-4 z-20 flex gap-2">
+            <button id="holdBreathBtn" class="px-3 py-2 bg-slate-800/80 hover:bg-slate-700 backdrop-blur border border-slate-600 active:scale-95 rounded-lg text-xs font-bold text-sky-300 shadow-lg flex items-center gap-1 transition-all">
+              <span>🫁</span>
+              <span>閉氣 (空白鍵)</span>
+            </button>
+            <button id="fireBtn" class="px-5 py-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 active:scale-95 border border-rose-400 text-white rounded-lg text-xs font-black shadow-lg shadow-rose-900/50 flex items-center gap-1.5 transition-all">
+              <span>💥</span>
+              <span>擊發 (點擊)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Range Bottom Control Strip -->
+        <div class="bg-slate-900 px-4 py-2.5 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <!-- View / Zoom Settings -->
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400 font-medium">視野倍率:</span>
+            <div class="bg-slate-800 p-0.5 rounded border border-slate-700 flex">
+              <button id="zoom1xBtn" class="px-2.5 py-1 rounded bg-slate-700 text-white font-bold transition-colors">
+                1x 實距離 (真槍視野)
+              </button>
+              <button id="zoom3xBtn" class="px-2.5 py-1 rounded text-slate-400 hover:text-white font-medium transition-colors">
+                3x 瞄準教學放大
+              </button>
+            </div>
+          </div>
+
+          <!-- Sight Assistance & Mode Toggle -->
+          <div class="flex items-center flex-wrap gap-2.5">
+            <button id="toggleControlModeBtn" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium transition-colors">
+              🕹️ 控制方式：搖桿/方向鍵
+            </button>
+            <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+              <input type="checkbox" id="showGuideCheck" checked class="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-0">
+              <span>覘孔置中輔助線</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+              <input type="checkbox" id="enableSwayCheck" checked class="rounded bg-slate-800 border-slate-700 text-emerald-600 focus:ring-0">
+              <span>模擬呼吸晃動</span>
+            </label>
+          </div>
+
+          <!-- Manual Target Reset -->
+          <div class="flex items-center gap-2">
+            <button id="manualResetTargetBtn" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 hover:text-white transition-colors">
+              🔄 強制立靶
+            </button>
+            <button id="resetStatsBtn" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 hover:text-white transition-colors">
+              清空紀錄
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Control Instructions Card -->
+      <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+        <div class="flex items-center gap-4 flex-wrap">
+          <span class="flex items-center gap-1.5"><kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-200 font-mono">🕹️ 搖桿 / WASD / 方向鍵</kbd> 移動準心</span>
+          <span class="flex items-center gap-1.5"><kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-200 font-mono">擊發按鈕 / 點擊</kbd> 開槍</span>
+          <span class="flex items-center gap-1.5"><kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-200 font-mono">按住 空白鍵 / Shift</kbd> 閉氣穩定</span>
+          <span class="flex items-center gap-1.5"><kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-200 font-mono">R</kbd> 立靶</span>
+        </div>
+        <div class="text-emerald-400 font-medium">
+          💡 貼心提示：真實175公尺人型靶極小，準星尖比靶身寬，瞄準要領是關鍵！
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right: Shot Analysis & Marksmanship Guide (4 cols on lg) -->
+    <div class="lg:col-span-4 flex flex-col gap-4">
+
+      <!-- Mini Target Diagram & Last Shot Analysis -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl flex flex-col gap-3">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
+            <span>🎯</span>
+            <span>彈著點即時分析 (人型靶紙視圖)</span>
+          </h2>
+          <span id="lastShotVerdict" class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300">尚未擊發</span>
+        </div>
+
+        <!-- Target Silhouette Visualizer -->
+        <div class="flex items-center justify-center p-2 bg-slate-950/70 rounded-lg border border-slate-800/80 relative">
+          <!-- Mini SVG Target with Dots -->
+          <div class="relative w-44 h-56 flex items-center justify-center">
+            <svg id="targetSvg" viewBox="0 0 160 220" class="w-full h-full drop-shadow">
+              <!-- E-type Silhouette Target Base & Outline -->
+              <!-- Stand -->
+              <rect x="68" y="195" width="24" height="25" fill="#374151" rx="2" />
+              <!-- Target Body (Standard Green E-type Army Silhouette) -->
+              <path d="M 52 35 C 52 20, 108 20, 108 35 C 108 50, 105 58, 118 64 L 142 78 C 146 82, 145 92, 140 98 L 130 106 L 130 195 L 30 195 L 30 106 L 20 98 C 15 92, 14 82, 18 78 L 42 64 C 55 58, 52 50, 52 35 Z" 
+                    fill="#273824" stroke="#4ade80" stroke-width="1.5" />
+              
+              <!-- Target Internal Rings / Scoring zones -->
+              <!-- Head zone -->
+              <ellipse cx="80" cy="40" rx="18" ry="18" fill="none" stroke="#3b5235" stroke-dasharray="2 2" stroke-width="1" />
+              <!-- Center Mass / Chest zone -->
+              <ellipse cx="80" cy="95" rx="35" ry="30" fill="none" stroke="#3b5235" stroke-dasharray="2 2" stroke-width="1" />
+              <!-- Center Dot / Navel (Ideal Aim Point) -->
+              <circle cx="80" cy="115" r="3" fill="#eab308" opacity="0.8" />
+              <!-- Reference Text -->
+              <text x="80" y="119" text-anchor="middle" font-size="8" fill="#fef08a" font-weight="bold">肚臍/靶心</text>
+              <text x="80" y="85" text-anchor="middle" font-size="9" fill="#86efac" font-weight="bold">胸部中央</text>
+              <text x="80" y="44" text-anchor="middle" font-size="8" fill="#93c5fd">頭部</text>
+              <!-- Target Baseline -->
+              <line x1="30" y1="195" x2="130" y2="195" stroke="#f87171" stroke-width="1.5" stroke-dasharray="3 2" />
+              <text x="80" y="191" text-anchor="middle" font-size="7" fill="#fca5a5">靶底切齊線</text>
+            </svg>
+
+            <!-- Dynamic Hit Markers Layer -->
+            <div id="shotMarkersContainer" class="absolute inset-0 pointer-events-none"></div>
+          </div>
+        </div>
+
+        <!-- Last Shot Feedback Details -->
+        <div class="text-xs bg-slate-950 p-3 rounded-lg border border-slate-800 flex flex-col gap-1.5">
+          <div class="flex justify-between">
+            <span class="text-slate-400">瞄準點 (POA):</span>
+            <span id="poaText" class="text-slate-200 font-mono">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">實際彈著 (POI):</span>
+            <span id="poiText" class="text-slate-200 font-mono">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">偏差原因分析:</span>
+            <span id="analysisText" class="text-amber-400 font-medium">擊發後即時分析</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zeroing & Ballistics Preset -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl flex flex-col gap-3">
+        <h2 class="text-sm font-bold text-white flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <span>⚙️</span>
+            <span>槍枝歸零與彈道設定</span>
+          </span>
+          <span class="text-[11px] font-normal text-slate-400">鑑測常見配置</span>
+        </h2>
+
+        <div class="space-y-2 text-xs">
+          <!-- Preset 1: 175m Zero (瞄哪打哪) -->
+          <label class="flex items-start gap-2.5 p-2 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-slate-700 cursor-pointer">
+            <input type="radio" name="zeroPreset" value="175" checked class="mt-0.5 text-emerald-600 focus:ring-0">
+            <div>
+              <div class="font-bold text-slate-200">標準175公尺精準歸零 (推薦)</div>
+              <div class="text-slate-400 text-[11px]">彈著點即為準星尖所指之處。建議瞄準「人型靶胸腹正中央（肚臍）」，容錯面積最大。</div>
+            </div>
+          </label>
+
+          <!-- Preset 2: 300m Zero / 稍高 (國軍戰鬥歸零) -->
+          <label class="flex items-start gap-2.5 p-2 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-slate-700 cursor-pointer">
+            <input type="radio" name="zeroPreset" value="300" class="mt-0.5 text-emerald-600 focus:ring-0">
+            <div>
+              <div class="font-bold text-slate-200">300公尺戰鬥歸零 (175M彈道偏高)</div>
+              <div class="text-slate-400 text-[11px]">彈道在175公尺時最高，彈著約偏高 15~18 公分。若瞄頭部會剃頭脫靶，必須瞄「靶底切齊線」或「下腹部」。</div>
+            </div>
+          </label>
+
+          <!-- Preset 3: Slight Right/Left Wind (微風偏) -->
+          <label class="flex items-start gap-2.5 p-2 rounded-lg bg-slate-950/60 border border-slate-800 hover:border-slate-700 cursor-pointer">
+            <input type="radio" name="zeroPreset" value="wind" class="mt-0.5 text-emerald-600 focus:ring-0">
+            <div>
+              <div class="font-bold text-slate-200">靶場側風偏修正練習 (3級右側風)</div>
+              <div class="text-slate-400 text-[11px]">風將子彈吹向右側約 12 公分，準星尖需略微往左預放修正（瞄靶左邊緣）。</div>
+            </div>
+          </label>
+        </div>
+
+        <!-- Aim Point Target Indicator Switch -->
+        <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
+          <span class="text-slate-400">最佳推薦瞄準點標線:</span>
+          <select id="aimGuidelineSelect" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-slate-200">
+            <option value="navel">胸腹肚臍 (標準中央)</option>
+            <option value="bottom">靶底平齊 (偏高防剃頭)</option>
+            <option value="chest">胸口中央</option>
+            <option value="none">無標記 (實戰模擬)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Quick Tips & Qualification Summary -->
+      <div class="bg-gradient-to-br from-slate-900 to-emerald-950/30 border border-emerald-900/40 rounded-xl p-4 shadow-xl text-xs space-y-2">
+        <div class="font-bold text-emerald-400 flex items-center gap-1.5">
+          <span>📋</span>
+          <span>175M 鑑測合格標準與射擊口訣</span>
+        </div>
+        <ul class="space-y-1.5 text-slate-300 text-[11px] list-disc list-inside">
+          <li><strong class="text-white">鑑測及格標準：</strong>鑑測6發，<span class="text-emerald-400 font-bold">中靶4發以上及格</span>；滿分6發神射手。</li>
+          <li><strong class="text-white">三點一線口訣：</strong>「覘孔、準星、目標」成一直線；準星尖位於覘孔正中央，兩側護圈透光等寬。</li>
+          <li><strong class="text-white">平平切切：</strong>準星尖頂部切齊覘孔圓心水平線。</li>
+          <li><strong class="text-white">不知不覺中擊發：</strong>自然呼氣後閉氣，食指第一節持續平順向後引壓板機，切忌緊張「猛扣」。</li>
+        </ul>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Qualification Result Modal -->
+  <div id="qualModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl flex flex-col items-center text-center gap-4">
+      <div id="qualResultIcon" class="w-16 h-16 rounded-full bg-emerald-600/20 border-2 border-emerald-500 flex items-center justify-center text-3xl">
+        🎉
+      </div>
+      <div>
+        <h3 id="qualResultTitle" class="text-xl font-black text-white">鑑測完成！</h3>
+        <p id="qualResultSubtitle" class="text-sm text-slate-400 mt-1">175公尺臥姿實距離射擊成績</p>
+      </div>
+
+      <div class="w-full bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-around">
+        <div class="flex flex-col">
+          <span class="text-xs text-slate-400">射擊總發數</span>
+          <span class="text-2xl font-black text-white">6 發</span>
+        </div>
+        <div class="w-px bg-slate-800"></div>
+        <div class="flex flex-col">
+          <span class="text-xs text-slate-400">命中倒靶數</span>
+          <span id="qualModalHits" class="text-2xl font-black text-emerald-400">5 發</span>
+        </div>
+        <div class="w-px bg-slate-800"></div>
+        <div class="flex flex-col">
+          <span class="text-xs text-slate-400">鑑測評判</span>
+          <span id="qualModalStatus" class="text-2xl font-black text-emerald-400">及格</span>
+        </div>
+      </div>
+
+      <p id="qualFeedback" class="text-xs text-slate-300 text-left bg-slate-800/60 p-3 rounded-lg border border-slate-700/60 w-full leading-relaxed">
+        表現優異！大部分彈著均落在人型靶胸腹有效區域內。只要保持穩定呼吸與食指平順扣引，實彈鑑測必定能順利過關！
+      </p>
+
+      <div class="flex gap-3 w-full">
+        <button id="qualRetryBtn" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/40">
+          再測一次 (6發)
+        </button>
+        <button id="qualCloseBtn" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl transition-all">
+          返回練習
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Marksmanship Guide Modal -->
+  <div id="guideModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <span>🎯</span>
+          <span>175公尺人形靶瞄準要領與常見失誤解析</span>
+        </h3>
+        <button id="closeGuideBtn" class="text-slate-400 hover:text-white text-lg p-1">✕</button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-300">
+        
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+          <h4 class="font-bold text-emerald-400 text-sm mb-2">一、為什麼很多人太久沒打，175公尺會「剃頭」脫靶？</h4>
+          <p>國軍步槍（T65K2 或 T91）配發至各部隊時，多數常以「300公尺戰鬥歸零」或射表設定。5.56mm 子彈在擊發後為拋物線弧度：</p>
+          <ul class="list-disc list-inside mt-2 space-y-1 text-slate-400">
+            <li>在 <strong>25公尺</strong> 穿過瞄準線（近零點）。</li>
+            <li>在 <strong>175公尺</strong> 時剛好接近<strong>彈道拋物線最高頂點（彈道高約偏高 15~18 公分）</strong>！</li>
+            <li>在 <strong>300公尺</strong> 再次回到瞄準線（遠零點）。</li>
+          </ul>
+          <div class="mt-2 text-amber-300 font-medium bg-amber-950/40 border border-amber-800/60 p-2.5 rounded">
+            ⚠️ <strong>致命失誤：</strong>若你習慣瞄人型靶的「頭部」或「胸部上方」，彈道偏高18公分剛好會從靶頂上方飛過（俗稱剃頭脫靶）！<br>
+            👉 <strong>教官秘訣：</strong>在部隊打靶若未特調歸零，一律瞄準「<strong>靶紙胸腹部中央／肚臍</strong>」或「<strong>人型靶底緣切齊</strong>」，讓彈道自然落在胸膛或腹部，倒靶率最高！
+          </div>
+        </div>
+
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+          <h4 class="font-bold text-sky-400 text-sm mb-2">二、覘孔與準星正確景況 (Sight Picture)</h4>
+          <p>許多役男與官兵常犯的第二個毛病是「找不到覘孔圓心」：</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+            <div class="bg-slate-900 p-2.5 rounded border border-slate-800">
+              <div class="font-bold text-white mb-1">✅ 正確：四邊透光等寬</div>
+              <p class="text-slate-400 text-[11px]">眼睛透過大覘孔（或近距覘孔）看出去，準星尖必須位在覘孔正中央，準星護圈兩側與覘孔內壁間隔均等。</p>
+            </div>
+            <div class="bg-slate-900 p-2.5 rounded border border-slate-800">
+              <div class="font-bold text-rose-400 mb-1">❌ 常見錯誤：準星偏上或偏下</div>
+              <p class="text-slate-400 text-[11px]">準星尖若偏高（浮準星），打出去一定飛靶高出；準星若偏低（沉準星），子彈會在靶前挖地瓜（打在土堤）。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+          <h4 class="font-bold text-yellow-400 text-sm mb-2">三、扣引板機與呼吸調節</h4>
+          <ul class="list-disc list-inside space-y-1.5 text-slate-300">
+            <li><strong>臥姿依託：</strong>沙包放置於護木前下方，左手手掌不要抓死護木，輕托或托住槍托底部。</li>
+            <li><strong>呼吸：</strong>正常吸氣、呼氣至自然停頓點（約剩下1/3肺活量），此時閉氣 3～5 秒瞄準並擊發。</li>
+            <li><strong>扣引：</strong>食指第一節中間輕扣板機，向後平穩施力，直到槍聲響起「在不知不覺中擊發」，絕不能有意識地「用力掐壓」！</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="px-6 py-3 border-t border-slate-800 bg-slate-900 flex justify-end">
+        <button id="closeGuideBottomBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-colors">
+          我知道了，開始實練
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Application State ---
+    const state = {
+      // Modes: 'practice' or 'qualification'
+      mode: 'practice',
+      qualRoundsTotal: 6,
+      qualRoundsRemaining: 6,
+      qualHits: 0,
+      
+      // Overall Stats
+      shotsFired: 0,
+      hits: 0,
+      shotHistory: [], // list of {x, y, hit, zone, poaX, poaY}
+
+      // Settings
+      zoom: 1, // 1x or 3x
+      showGuideLines: true,
+      enableSway: true,
+      zeroPreset: '175', // '175', '300', 'wind'
+      aimGuideline: 'navel', // 'navel', 'bottom', 'chest', 'none'
+      audioEnabled: true,
+
+      // Target status
+      targetStanding: true,
+      targetFallProgress: 0, // 0 = fully standing, 1 = fully fallen
+      targetIsFalling: false,
+      targetIsRising: false,
+      targetResetTimer: null,
+
+      // Aim, Joystick & Breathing
+      mouse: { x: 0, y: 0 },
+      aimPos: { x: 0, y: 0 }, // smoothed aim position
+      swayOffset: { x: 0, y: 0 },
+      swayTime: 0,
+      holdingBreath: false,
+      breathEnergy: 100, // 0 to 100%
+      recoilOffset: { x: 0, y: 0 },
+      muzzleFlash: 0, // timer
+
+      // Joystick & Control Mode
+      joystick: {
+        active: false,
+        touchId: null,
+        deltaX: 0,
+        deltaY: 0,
+        sensitivity: 'normal', // 'normal' or 'fine'
+        maxRadius: 44
+      },
+      keyMovement: { x: 0, y: 0, active: false },
+      controlMode: 'joystick', // 'joystick' or 'mouse' 
+
+      // Dust puffs from miss
+      dustParticles: [],
+
+      // Range coordinates (computed on resize)
+      rangeCenter: { x: 0, y: 0 },
+      targetCenter: { x: 0, y: 0 }
+    };
+
+    // --- Audio System (Web Audio API Synthesizer) ---
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playGunshotSound() {
+      if (!state.audioEnabled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+
+        // 1. Noise blast (supersonic muzzle crack)
+        const bufferSize = audioCtx.sampleRate * 0.4;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.04));
+        }
+        const whiteNoise = audioCtx.createBufferSource();
+        whiteNoise.buffer = buffer;
+
+        // Noise filter (high-pass then low-pass for rifle report)
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(3200, now);
+        filter.frequency.exponentialRampToValueAtTime(150, now + 0.35);
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(1.0, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.38);
+
+        whiteNoise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+        whiteNoise.start(now);
+
+        // 2. Low-frequency boom (gunpowder expansion thump)
+        const osc = audioCtx.createOscillator();
+        const oscGain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(35, now + 0.28);
+
+        oscGain.gain.setValueAtTime(0.9, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+        osc.connect(oscGain);
+        oscGain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      } catch (e) {
+        console.error('Audio error', e);
+      }
+    }
+
+    function playSteelHitSound() {
+      if (!state.audioEnabled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+
+        // Metallic clink / clang (target knockdown)
+        const freqs = [840, 1420, 2200, 3100];
+        freqs.forEach((f, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+          osc.frequency.setValueAtTime(f, now);
+          osc.frequency.exponentialRampToValueAtTime(f * 0.95, now + 0.5);
+
+          const vol = 0.3 / (idx + 1);
+          gain.gain.setValueAtTime(vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55 + idx * 0.1);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.7);
+        });
+
+        // Mechanical dull thud (target fall into bracket)
+        setTimeout(() => {
+          if (!audioCtx) return;
+          const tNow = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(90, tNow);
+          osc.frequency.linearRampToValueAtTime(30, tNow + 0.15);
+          gain.gain.setValueAtTime(0.4, tNow);
+          gain.gain.exponentialRampToValueAtTime(0.01, tNow + 0.18);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(tNow);
+          osc.stop(tNow + 0.2);
+        }, 120);
+      } catch (e) {
+        console.error('Hit audio error', e);
+      }
+    }
+
+    function playDirtHitSound() {
+      if (!state.audioEnabled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(110, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.18);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.005, now + 0.2);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.22);
+      } catch (e) {
+        console.error('Dirt audio error', e);
+      }
+    }
+
+    function playTargetRiseSound() {
+      if (!state.audioEnabled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+        // Motor servo hum
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.linearRampToValueAtTime(220, now + 0.3);
+        osc.frequency.linearRampToValueAtTime(110, now + 0.5);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.52);
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(600, now);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.55);
+      } catch (e) {
+        console.error('Rise audio error', e);
+      }
+    }
+
+    // --- DOM Elements ---
+    const canvas = document.getElementById('rangeCanvas');
+    const ctx = canvas.getContext('2d');
+    const shotsFiredCountEl = document.getElementById('shotsFiredCount');
+    const hitsCountEl = document.getElementById('hitsCount');
+    const accuracyPctEl = document.getElementById('accuracyPct');
+    const targetStatusText = document.getElementById('targetStatusText');
+    const breathBar = document.getElementById('breathBar');
+    const breathPctText = document.getElementById('breathPctText');
+    const hitNotification = document.getElementById('hitNotification');
+    const hitBadge = document.getElementById('hitBadge');
+    const hitIcon = document.getElementById('hitIcon');
+    const hitMessage = document.getElementById('hitMessage');
+    const poaText = document.getElementById('poaText');
+    const poiText = document.getElementById('poiText');
+    const analysisText = document.getElementById('analysisText');
+    const lastShotVerdict = document.getElementById('lastShotVerdict');
+    const shotMarkersContainer = document.getElementById('shotMarkersContainer');
+    const windText = document.getElementById('windText');
+
+    // Controls
+    const zoom1xBtn = document.getElementById('zoom1xBtn');
+    const zoom3xBtn = document.getElementById('zoom3xBtn');
+    const showGuideCheck = document.getElementById('showGuideCheck');
+    const enableSwayCheck = document.getElementById('enableSwayCheck');
+    const manualResetTargetBtn = document.getElementById('manualResetTargetBtn');
+    const resetStatsBtn = document.getElementById('resetStatsBtn');
+    const fireBtn = document.getElementById('fireBtn');
+    const holdBreathBtn = document.getElementById('holdBreathBtn');
+    const audioToggleBtn = document.getElementById('audioToggleBtn');
+    const audioIcon = document.getElementById('audioIcon');
+    const audioText = document.getElementById('audioText');
+    const aimGuidelineSelect = document.getElementById('aimGuidelineSelect');
+
+    // Modes & Modals
+    const modePracticeBtn = document.getElementById('modePracticeBtn');
+    const modeQualBtn = document.getElementById('modeQualBtn');
+    const qualAmmoBox = document.getElementById('qualAmmoBox');
+    const qualAmmoCount = document.getElementById('qualAmmoCount');
+    const qualModal = document.getElementById('qualModal');
+    const qualResultIcon = document.getElementById('qualResultIcon');
+    const qualResultTitle = document.getElementById('qualResultTitle');
+    const qualResultSubtitle = document.getElementById('qualResultSubtitle');
+    const qualModalHits = document.getElementById('qualModalHits');
+    const qualModalStatus = document.getElementById('qualModalStatus');
+    const qualFeedback = document.getElementById('qualFeedback');
+    const qualRetryBtn = document.getElementById('qualRetryBtn');
+    const qualCloseBtn = document.getElementById('qualCloseBtn');
+
+    // Guide Modal
+    const openGuideBtn = document.getElementById('openGuideBtn');
+    const guideModal = document.getElementById('guideModal');
+    const closeGuideBtn = document.getElementById('closeGuideBtn');
+    const closeGuideBottomBtn = document.getElementById('closeGuideBottomBtn');
+
+    // --- Resize Canvas ---
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      state.rangeCenter = { x: rect.width / 2, y: rect.height / 2 };
+      // Target positioned at distance center on the back berm
+      state.targetCenter = {
+        x: rect.width / 2,
+        y: rect.height * 0.44
+      };
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // --- Target Geometry at 175M ---
+    // Realistic angular size at 175m:
+    // A standard E-type human silhouette is approx 100cm tall x 50cm wide.
+    // At 175m, height subtends ~ 5.7 mrad (~0.33 degrees).
+    // In our canvas viewport at 1x zoom:
+    // Target height ~ 34px, width ~ 18px.
+    // At 3x zoom: height ~ 102px, width ~ 54px.
+    function getTargetDimensions() {
+      const baseHeight = 34 * state.zoom;
+      const baseWidth = 18 * state.zoom;
+      return {
+        width: baseWidth,
+        height: baseHeight,
+        x: state.targetCenter.x - baseWidth / 2,
+        y: state.targetCenter.y - baseHeight / 2
+      };
+    }
+
+    // --- Ballistics & Aim Calculation ---
+    // Zero presets:
+    // 175m: POI = POA (with tiny barrel dispersion +/- 2cm)
+    // 300m zero: Bullet trajectory is at its peak at ~175m, hitting ~16cm higher than POA!
+    // wind: +12cm to the right
+    function calculateShotImpact(aimX, aimY) {
+      const tDim = getTargetDimensions();
+      
+      // Scaling factor: 1 meter at 175m corresponds to target height (1m) in pixels
+      const pxPerMeter = tDim.height; // 1m in pixels
+
+      // Intrinsic rifle dispersion (about 2 MOA for military rack-grade T91 = ~10cm at 175m)
+      const dispersionX = (Math.random() - 0.5) * (pxPerMeter * 0.08);
+      const dispersionY = (Math.random() - 0.5) * (pxPerMeter * 0.08);
+
+      let ballisticOffsetY = 0;
+      let ballisticOffsetX = 0;
+
+      if (state.zeroPreset === '300') {
+        // Bullet arcs high by ~16 cm at 175m (upwards in canvas is negative Y)
+        ballisticOffsetY = -0.16 * pxPerMeter;
+      } else if (state.zeroPreset === 'wind') {
+        // 3-level crosswind pushes right by ~12 cm
+        ballisticOffsetX = 0.12 * pxPerMeter;
+      }
+
+      const impactX = aimX + dispersionX + ballisticOffsetX;
+      const impactY = aimY + dispersionY + ballisticOffsetY;
+
+      // Check hit against target
+      // Target bounds relative to target center
+      const relX = impactX - state.targetCenter.x;
+      const relY = impactY - state.targetCenter.y;
+
+      const halfW = tDim.width / 2;
+      const halfH = tDim.height / 2;
+
+      let hit = false;
+      let hitZone = 'miss';
+
+      // Check if target is standing
+      if (state.targetStanding && state.targetFallProgress < 0.2) {
+        // E-type silhouette rough hit test:
+        // Top 25%: Head (narrower: width * 0.45)
+        // Mid 45%: Chest & Torso (full width)
+        // Bottom 30%: Lower abdomen & Base (width * 0.85)
+        const normalizedY = (relY + halfH) / tDim.height; // 0 (top of head) to 1 (base)
+        const absRelX = Math.abs(relX);
+
+        if (normalizedY >= 0 && normalizedY <= 1) {
+          if (normalizedY < 0.25) {
+            // Head
+            if (absRelX <= halfW * 0.48) {
+              hit = true;
+              hitZone = 'head';
+            }
+          } else if (normalizedY < 0.7) {
+            // Chest / Upper Torso
+            if (absRelX <= halfW) {
+              hit = true;
+              hitZone = 'chest';
+            }
+          } else {
+            // Abdomen / Lower Base
+            if (absRelX <= halfW * 0.88) {
+              hit = true;
+              hitZone = 'navel';
+            }
+          }
+        }
+      }
+
+      // Convert relative hit on target to standard mini target coords (160x220)
+      // Mini target head top is at Y=20, base is at Y=195 (height = 175)
+      // center X is at 80, width is ~110
+      const miniTargetHeight = 175;
+      const miniTargetWidth = 90;
+      const normX = relX / halfW; // -1 to +1
+      const normY = (relY + halfH) / tDim.height; // 0 to 1
+
+      const svgX = 80 + normX * (miniTargetWidth / 2);
+      const svgY = 20 + normY * miniTargetHeight;
+
+      return {
+        aimX,
+        aimY,
+        impactX,
+        impactY,
+        hit,
+        hitZone,
+        svgX,
+        svgY,
+        normX,
+        normY
+      };
+    }
+
+    // --- Trigger / Shoot Action ---
+    function triggerShot() {
+      initAudio();
+
+      // Check qualification ammo
+      if (state.mode === 'qualification' && state.qualRoundsRemaining <= 0) {
+        return;
+      }
+
+      // Gunshot sound
+      playGunshotSound();
+
+      // Recoil & Muzzle flash
+      state.recoilOffset.y = -18;
+      state.recoilOffset.x = (Math.random() - 0.5) * 6;
+      state.muzzleFlash = 4; // frames
+
+      // Calculate shot
+      const shot = calculateShotImpact(state.aimPos.x, state.aimPos.y);
+
+      state.shotsFired++;
+      state.shotHistory.push(shot);
+
+      if (state.mode === 'qualification') {
+        state.qualRoundsRemaining--;
+        qualAmmoCount.textContent = `${state.qualRoundsRemaining} / ${state.qualRoundsTotal}`;
+      }
+
+      // Evaluate result
+      if (shot.hit) {
+        state.hits++;
+        if (state.mode === 'qualification') {
+          state.qualHits++;
+        }
+        playSteelHitSound();
+        knockdownTarget();
+        showHitFeedback(true, shot.hitZone);
+      } else {
+        playDirtHitSound();
+        spawnDustPuff(shot.impactX, shot.impactY);
+        showHitFeedback(false, shot.normY < 0 ? 'over' : (shot.normY > 1 ? 'dirt' : 'side'));
+      }
+
+      updateStatsUI();
+      updateShotAnalysisUI(shot);
+      renderShotMarkers();
+
+      // Check if qualification finished
+      if (state.mode === 'qualification' && state.qualRoundsRemaining === 0) {
+        setTimeout(showQualificationResult, 1200);
+      }
+    }
+
+    // --- Target Knockdown & Lifter Physics ---
+    function knockdownTarget() {
+      if (!state.targetStanding) return;
+      state.targetStanding = false;
+      state.targetIsFalling = true;
+      targetStatusText.textContent = '倒靶！(中靶倒地)';
+      targetStatusText.className = 'font-bold text-rose-400';
+
+      // Auto reset after 2.6 seconds
+      if (state.targetResetTimer) clearTimeout(state.targetResetTimer);
+      state.targetResetTimer = setTimeout(() => {
+        resetTarget();
+      }, 2600);
+    }
+
+    function resetTarget() {
+      if (state.targetStanding && !state.targetIsFalling) return;
+      state.targetIsFalling = false;
+      state.targetIsRising = true;
+      playTargetRiseSound();
+      targetStatusText.textContent = '靶機起靶中...';
+      targetStatusText.className = 'font-bold text-yellow-400';
+    }
+
+    // --- Dust Puff for Misses ---
+    function spawnDustPuff(x, y) {
+      for (let i = 0; i < 14; i++) {
+        state.dustParticles.push({
+          x: x + (Math.random() - 0.5) * 8,
+          y: y + (Math.random() - 0.5) * 4,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: -Math.random() * 2 - 0.5,
+          alpha: 0.8,
+          radius: Math.random() * 5 + 3,
+          maxLife: 28,
+          life: 0
+        });
+      }
+    }
+
+    // --- Feedback Banner & Explanations ---
+    function showHitFeedback(hit, zone) {
+      hitNotification.classList.remove('opacity-0', '-translate-y-2');
+      hitNotification.classList.add('opacity-100', 'translate-y-0');
+
+      if (hit) {
+        hitBadge.className = 'px-5 py-2 rounded-full font-black text-sm tracking-wider shadow-2xl flex items-center gap-2 bg-emerald-600 text-white border-2 border-emerald-400';
+        hitIcon.textContent = '💥';
+        let zoneStr = '人型靶中央有效區';
+        if (zone === 'head') zoneStr = '人型靶頭部';
+        if (zone === 'chest') zoneStr = '人型靶胸膛部';
+        if (zone === 'navel') zoneStr = '人型靶腹部 (肚臍)';
+        hitMessage.textContent = `命中！倒靶！[${zoneStr}]`;
+        lastShotVerdict.textContent = '中靶 (倒靶)';
+        lastShotVerdict.className = 'text-xs font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800';
+      } else {
+        hitBadge.className = 'px-5 py-2 rounded-full font-black text-sm tracking-wider shadow-2xl flex items-center gap-2 bg-rose-950 text-rose-200 border-2 border-rose-600';
+        hitIcon.textContent = '💨';
+        let missStr = '未中靶身 (脫靶)';
+        if (zone === 'over') missStr = '彈著偏高 (剃頭飛靶)';
+        if (zone === 'dirt') missStr = '彈著過低 (挖地瓜/打中靶前土堤)';
+        hitMessage.textContent = `脫靶！${missStr}`;
+        lastShotVerdict.textContent = '脫靶 (未倒靶)';
+        lastShotVerdict.className = 'text-xs font-bold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800';
+      }
+
+      setTimeout(() => {
+        hitNotification.classList.remove('opacity-100', 'translate-y-0');
+        hitNotification.classList.add('opacity-0', '-translate-y-2');
+      }, 2200);
+    }
+
+    function updateShotAnalysisUI(shot) {
+      // Point of Aim text
+      const tDim = getTargetDimensions();
+      const relAimY = (shot.aimY - (state.targetCenter.y - tDim.height / 2)) / tDim.height;
+      let poaDesc = '中央肚臍區';
+      if (relAimY < 0.25) poaDesc = '瞄準頭部';
+      else if (relAimY < 0.55) poaDesc = '瞄準胸部中央';
+      else if (relAimY < 0.85) poaDesc = '瞄準肚臍/腹部';
+      else if (relAimY <= 1.05) poaDesc = '瞄準靶底切齊線';
+      else poaDesc = '瞄準過低';
+
+      poaText.textContent = poaDesc;
+
+      // Point of Impact text
+      let poiDesc = '';
+      if (shot.hit) {
+        if (shot.hitZone === 'head') poiDesc = '頭部 (命中)';
+        else if (shot.hitZone === 'chest') poiDesc = '胸膛 (命中)';
+        else poiDesc = '腹部 (命中)';
+      } else {
+        if (shot.normY < 0) poiDesc = '上方土坡 (過高)';
+        else if (shot.normY > 1) poiDesc = '靶前地面 (過低)';
+        else if (shot.normX > 1) poiDesc = '右側偏離 (脫靶)';
+        else poiDesc = '左側偏離 (脫靶)';
+      }
+      poiText.textContent = poiDesc;
+
+      // Analysis & coaching recommendation
+      let analysis = '';
+      if (shot.hit) {
+        analysis = '優良擊發！覘孔置中良好，彈道順利落在人形靶有效命中區。保持此瞄準點！';
+      } else {
+        if (shot.normY < 0) {
+          if (state.zeroPreset === '300') {
+            analysis = '【剃頭失誤】因300m歸零在175m彈道偏高，瞄太高會直接飛過靶頂！請修正瞄準點至「腹部肚臍」或「靶底切齊線」。';
+          } else {
+            analysis = '【彈著偏高】準星尖可能浮出覘孔中央，或擊發瞬間槍口上揚。請確實檢查「平平切切」並平順扣引。';
+          }
+        } else if (shot.normY > 1) {
+          analysis = '【挖地瓜】準星沉入覘孔底部，或擊發時猛扣導致槍口下挫。請放鬆手指、第一節均勻向後施力。';
+        } else if (shot.normX > 1) {
+          analysis = '【偏右】受到右側風偏影響或右手扣板機過度向右擰扭。準星尖可稍微向左瞄準預放修正。';
+        } else {
+          analysis = '【偏左】準星未在覘孔正中央，偏向左側。請確認準星護圈兩側透光等寬。';
+        }
+      }
+      analysisText.textContent = analysis;
+    }
+
+    function renderShotMarkers() {
+      shotMarkersContainer.innerHTML = '';
+      state.shotHistory.forEach((shot, index) => {
+        const isLatest = index === state.shotHistory.length - 1;
+        const marker = document.createElement('div');
+        marker.className = `absolute -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center font-bold text-[9px] shadow-sm ${
+          shot.hit ? 'bg-emerald-500 text-slate-950 border border-white' : 'bg-rose-500 text-white border border-rose-300'
+        } ${isLatest ? 'w-5 h-5 ring-2 ring-yellow-400 z-10 animate-pulse' : 'w-4 h-4 opacity-80'}`;
+        
+        // Coordinates in 160x220 SVG space converted to percent
+        const leftPct = (shot.svgX / 160) * 100;
+        const topPct = (shot.svgY / 220) * 100;
+
+        marker.style.left = `${Math.min(95, Math.max(5, leftPct))}%`;
+        marker.style.top = `${Math.min(95, Math.max(5, topPct))}%`;
+        marker.textContent = index + 1;
+        shotMarkersContainer.appendChild(marker);
+      });
+    }
+
+    function updateStatsUI() {
+      shotsFiredCountEl.textContent = state.shotsFired;
+      hitsCountEl.textContent = state.hits;
+      const pct = state.shotsFired > 0 ? Math.round((state.hits / state.shotsFired) * 100) : 0;
+      accuracyPctEl.textContent = `${pct}%`;
+    }
+
+    function showQualificationResult() {
+      qualModalHits.textContent = `${state.qualHits} 發`;
+      const passed = state.qualHits >= 4;
+
+      if (passed) {
+        qualResultIcon.className = 'w-16 h-16 rounded-full bg-emerald-600/20 border-2 border-emerald-500 flex items-center justify-center text-3xl';
+        qualResultIcon.textContent = '🎖️';
+        qualResultTitle.textContent = state.qualHits === 6 ? '滿靶神射手！卓越及格！' : '鑑測合格！通過測驗！';
+        qualModalStatus.textContent = '合格及格';
+        qualModalStatus.className = 'text-2xl font-black text-emerald-400';
+        qualFeedback.innerHTML = `
+          <strong>鑑測成績評定：</strong> 6發命中 <strong>${state.qualHits}</strong> 發（國軍標準4發合格）。<br>
+          你的瞄準基線與扣引穩定度非常扎實！在175公尺實距離鑑測中，能夠掌握「覘孔置中」與「肚臍瞄準點」，實彈鑑測必定能輕鬆過關！
+        `;
+      } else {
+        qualResultIcon.className = 'w-16 h-16 rounded-full bg-rose-600/20 border-2 border-rose-500 flex items-center justify-center text-3xl';
+        qualResultIcon.textContent = '⚠️';
+        qualResultTitle.textContent = '未達鑑測及格標準';
+        qualModalStatus.textContent = '不合格';
+        qualModalStatus.className = 'text-2xl font-black text-rose-400';
+        qualFeedback.innerHTML = `
+          <strong>鑑測成績評定：</strong> 6發命中 <strong>${state.qualHits}</strong> 發（距離及格標準差 ${4 - state.qualHits} 發）。<br>
+          常見失誤是「彈道偏高剃頭」或「不知不覺中猛扣造成偏下」。建議切換到「3x 瞄準教學放大」熟悉準星與人型靶肚臍之相對位置，並按住空白鍵閉氣擊發！
+        `;
+      }
+
+      qualModal.classList.remove('hidden');
+    }
+
+    // --- Main Render Loop (Canvas Animation) ---
+    function renderLoop() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 1. Update sway and aim position
+      if (state.enableSway) {
+        state.swayTime += 0.035;
+        // Holding breath dampens sway significantly
+        const damp = state.holdingBreath ? 0.12 : 1.0;
+        state.swayOffset.x = (Math.sin(state.swayTime * 1.1) * 3 + Math.cos(state.swayTime * 0.7) * 2) * damp;
+        state.swayOffset.y = (Math.cos(state.swayTime * 0.9) * 4 + Math.sin(state.swayTime * 1.3) * 1.5) * damp;
+      } else {
+        state.swayOffset.x = 0;
+        state.swayOffset.y = 0;
+      }
+
+      // Aim update: Joystick & Keyboard or Direct Mouse
+      if (state.controlMode === 'joystick') {
+        const speed = state.joystick.sensitivity === 'fine' ? 1.6 : 3.6;
+        const moveX = state.joystick.deltaX + state.keyMovement.x;
+        const moveY = state.joystick.deltaY + state.keyMovement.y;
+
+        state.aimPos.x += moveX * speed;
+        state.aimPos.y += moveY * speed;
+
+        // Clamp aim position within peep sight aperture
+        const peepCenterX = w / 2;
+        const peepCenterY = h / 2;
+        const maxDist = Math.min(w, h) * 0.36;
+        const curDist = Math.hypot(state.aimPos.x - peepCenterX, state.aimPos.y - peepCenterY);
+        if (curDist > maxDist) {
+          const ang = Math.atan2(state.aimPos.y - peepCenterY, state.aimPos.x - peepCenterX);
+          state.aimPos.x = peepCenterX + Math.cos(ang) * maxDist;
+          state.aimPos.y = peepCenterY + Math.sin(ang) * maxDist;
+        }
+      } else {
+        // Direct mouse tracking mode
+        state.aimPos.x += (state.mouse.x + state.swayOffset.x - state.aimPos.x) * 0.35;
+        state.aimPos.y += (state.mouse.y + state.swayOffset.y - state.aimPos.y) * 0.35;
+      }
+
+      // Recoil recovery
+      state.recoilOffset.x *= 0.75;
+      state.recoilOffset.y *= 0.75;
+
+      // Breath energy depletion & recovery
+      if (state.holdingBreath) {
+        state.breathEnergy = Math.max(0, state.breathEnergy - 0.7);
+        if (state.breathEnergy === 0) {
+          state.holdingBreath = false; // forced exhale
+        }
+      } else {
+        state.breathEnergy = Math.min(100, state.breathEnergy + 0.5);
+      }
+      breathBar.style.width = `${state.breathEnergy}%`;
+      breathPctText.textContent = `${Math.round(state.breathEnergy)}%`;
+
+      // Target knockdown animation progress
+      if (state.targetIsFalling) {
+        state.targetFallProgress = Math.min(1, state.targetFallProgress + 0.12);
+        if (state.targetFallProgress >= 1) {
+          state.targetIsFalling = false;
+        }
+      } else if (state.targetIsRising) {
+        state.targetFallProgress = Math.max(0, state.targetFallProgress - 0.08);
+        if (state.targetFallProgress <= 0) {
+          state.targetIsRising = false;
+          state.targetStanding = true;
+          targetStatusText.textContent = '起靶完畢 (等待射擊)';
+          targetStatusText.className = 'font-bold text-emerald-400';
+        }
+      }
+
+      // ==========================================
+      // A. DRAW BACKGROUND: SHOOTING RANGE (175M)
+      // ==========================================
+      
+      // Sky
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.45);
+      skyGrad.addColorStop(0, '#38bdf8');
+      skyGrad.addColorStop(0.7, '#bae6fd');
+      skyGrad.addColorStop(1, '#e0f2fe');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h * 0.45);
+
+      // Mountain / Distant Hills behind the range
+      ctx.fillStyle = '#475569';
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.38);
+      ctx.bezierCurveTo(w * 0.25, h * 0.33, w * 0.4, h * 0.36, w * 0.6, h * 0.32);
+      ctx.bezierCurveTo(w * 0.8, h * 0.30, w * 0.9, h * 0.35, w, h * 0.34);
+      ctx.lineTo(w, h * 0.45);
+      ctx.lineTo(0, h * 0.45);
+      ctx.closePath();
+      ctx.fill();
+
+      // Earth Back Berm (背彈土坡 / 靶溝土堤)
+      const bermGrad = ctx.createLinearGradient(0, h * 0.36, 0, h * 0.52);
+      bermGrad.addColorStop(0, '#594433');
+      bermGrad.addColorStop(0.5, '#78593a');
+      bermGrad.addColorStop(1, '#8c6b47');
+      ctx.fillStyle = bermGrad;
+      ctx.beginPath();
+      ctx.moveTo(0, h * 0.38);
+      ctx.lineTo(w * 0.15, h * 0.36);
+      ctx.lineTo(w * 0.45, h * 0.37);
+      ctx.lineTo(w * 0.85, h * 0.35);
+      ctx.lineTo(w, h * 0.37);
+      ctx.lineTo(w, h * 0.52);
+      ctx.lineTo(0, h * 0.52);
+      ctx.closePath();
+      ctx.fill();
+
+      // Grassy Shooting Range Field (草坪地面)
+      const grassGrad = ctx.createLinearGradient(0, h * 0.5, 0, h);
+      grassGrad.addColorStop(0, '#2d5a27');
+      grassGrad.addColorStop(0.3, '#3f722f');
+      grassGrad.addColorStop(1, '#4d8a39');
+      ctx.fillStyle = grassGrad;
+      ctx.fillRect(0, h * 0.5, w, h * 0.5);
+
+      // Distance markers (75M, 100M, 175M signs)
+      // 175M Marker Board near target stand
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(w * 0.32, h * 0.46, 26, 12);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('175M', w * 0.32 + 13, h * 0.46 + 6);
+
+      // Distance pole/lane dividers
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.32 + 13, h * 0.46 + 12);
+      ctx.lineTo(w * 0.32 + 13, h * 0.49);
+      ctx.stroke();
+
+      // ==========================================
+      // B. DRAW 175M HUMAN SILHOUETTE TARGET (E型人形靶)
+      // ==========================================
+      const tDim = getTargetDimensions();
+      const targetBaseY = state.targetCenter.y + tDim.height / 2;
+
+      ctx.save();
+      // Target stand base (靶機固定基座)
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(state.targetCenter.x - tDim.width * 0.6, targetBaseY - 2, tDim.width * 1.2, 5);
+
+      // Fall backward transformation (hinge rotation around target base)
+      // When fallProgress goes 0 -> 1, scaleY decreases to 0 (or slight negative perspective)
+      ctx.translate(state.targetCenter.x, targetBaseY);
+      const fallScale = Math.cos(state.targetFallProgress * (Math.PI / 2));
+      ctx.scale(1, Math.max(0.04, fallScale));
+      ctx.translate(-state.targetCenter.x, -targetBaseY);
+
+      // Target Silhouette Path (Classic Military Green E-Type Silhouette)
+      const tx = state.targetCenter.x;
+      const ty = state.targetCenter.y - tDim.height / 2; // top of head
+      const tw = tDim.width;
+      const th = tDim.height;
+
+      ctx.fillStyle = '#1e381e'; // Camo dark olive green
+      ctx.strokeStyle = '#4ade80'; // Edge highlight for contrast
+      ctx.lineWidth = state.zoom > 1 ? 1.5 : 0.8;
+
+      ctx.beginPath();
+      // Head
+      ctx.moveTo(tx - tw * 0.22, ty);
+      ctx.lineTo(tx + tw * 0.22, ty);
+      ctx.lineTo(tx + tw * 0.22, ty + th * 0.22);
+      // Neck to Shoulder
+      ctx.lineTo(tx + tw * 0.5, ty + th * 0.32);
+      // Upper arm down to torso
+      ctx.lineTo(tx + tw * 0.42, ty + th * 0.45);
+      // Torso side straight down
+      ctx.lineTo(tx + tw * 0.42, targetBaseY);
+      ctx.lineTo(tx - tw * 0.42, targetBaseY);
+      // Left Torso up
+      ctx.lineTo(tx - tw * 0.42, ty + th * 0.45);
+      ctx.lineTo(tx - tw * 0.5, ty + th * 0.32);
+      ctx.lineTo(tx - tw * 0.22, ty + th * 0.22);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Aiming guidelines drawn on target if enabled
+      if (state.showGuideLines && state.targetStanding && state.targetFallProgress < 0.2) {
+        if (state.aimGuideline === 'navel' || state.aimGuideline === 'chest' || state.aimGuideline === 'bottom') {
+          let lineY = targetBaseY;
+          let label = '';
+          let col = '#fbbf24';
+
+          if (state.aimGuideline === 'navel') {
+            lineY = ty + th * 0.68; // navel
+            label = '肚臍/靶心 (推薦瞄準點)';
+            col = '#38bdf8';
+          } else if (state.aimGuideline === 'chest') {
+            lineY = ty + th * 0.45; // chest
+            label = '胸膛中央';
+            col = '#4ade80';
+          } else if (state.aimGuideline === 'bottom') {
+            lineY = targetBaseY; // bottom edge
+            label = '靶底切齊線 (300M歸零防剃頭)';
+            col = '#f87171';
+          }
+
+          ctx.strokeStyle = col;
+          ctx.setLineDash([3, 2]);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(tx - tw * 0.7, lineY);
+          ctx.lineTo(tx + tw * 0.7, lineY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Guideline center mark
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.arc(tx, lineY, state.zoom > 1 ? 3 : 1.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (state.zoom > 1) {
+            ctx.fillStyle = col;
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, tx, lineY - 4);
+          }
+        }
+      }
+
+      ctx.restore();
+
+      // ==========================================
+      // C. DRAW DUST PUFF PARTICLES (MISS IMPACTS)
+      // ==========================================
+      for (let i = state.dustParticles.length - 1; i >= 0; i--) {
+        const p = state.dustParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life++;
+        p.alpha = 1 - (p.life / p.maxLife);
+        p.radius += 0.2;
+
+        ctx.fillStyle = `rgba(180, 150, 120, ${p.alpha * 0.7})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (p.life >= p.maxLife) {
+          state.dustParticles.splice(i, 1);
+        }
+      }
+
+      // ==========================================
+      // D. DRAW RIFLE SIGHTS (覘孔與準星)
+      // ==========================================
+      const sightX = state.aimPos.x + state.recoilOffset.x;
+      const sightY = state.aimPos.y + state.recoilOffset.y;
+
+      // 1. Draw Front Sight (準心就一根 - 直立準星柱)
+      // Exactly ONE vertical post extending from the bottom to sightY
+      const postWidth = state.zoom > 1 ? 8 : 4.5;
+
+      ctx.save();
+      // Single post body rising from bottom to the aim point
+      ctx.fillStyle = '#05070a';
+      ctx.fillRect(sightX - postWidth / 2, sightY, postWidth, h - sightY);
+
+      // Edge stroke for crisp contrast
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sightX - postWidth / 2, sightY, postWidth, h - sightY);
+
+      // Flat top tip highlight (準星尖頂部切齊線)
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(sightX - postWidth / 2, sightY, postWidth, 1.5);
+
+      // If guide lines are on, draw sight alignment assistance:
+      if (state.showGuideLines) {
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+        ctx.setLineDash([2, 2]);
+        ctx.lineWidth = 1;
+        // Horizontal flush line across top of post
+        ctx.beginPath();
+        ctx.moveTo(sightX - 25, sightY);
+        ctx.lineTo(sightX + 25, sightY);
+        ctx.stroke();
+        // Vertical center line
+        ctx.beginPath();
+        ctx.moveTo(sightX, sightY - 8);
+        ctx.lineTo(sightX, sightY + 12);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+
+      // 2. Draw Rear Peep Sight Aperture (覘孔 - 黑邊圓形)
+      // "覘孔要做出來，就是一個黑邊圓形就好"
+      const peepCenterX = w / 2;
+      const peepCenterY = h / 2;
+      const peepRadius = Math.min(w, h) * 0.40;
+
+      ctx.save();
+      // Outside mask: Dark rifle rear receiver shroud (leaves a circular hole to look through)
+      ctx.beginPath();
+      ctx.rect(0, 0, w, h);
+      ctx.arc(peepCenterX, peepCenterY, peepRadius, 0, Math.PI * 2, true);
+      ctx.closePath();
+      ctx.fillStyle = '#070b14'; // Dark metal shroud
+      ctx.fill();
+
+      // The Solid Black Circular Border (黑邊圓形)
+      ctx.beginPath();
+      ctx.arc(peepCenterX, peepCenterY, peepRadius, 0, Math.PI * 2);
+      ctx.lineWidth = 14;
+      ctx.strokeStyle = '#000000'; // Pure black rim
+      ctx.stroke();
+
+      // Subtle metallic inner and outer borders for realistic aperture rim
+      ctx.beginPath();
+      ctx.arc(peepCenterX, peepCenterY, peepRadius - 7, 0, Math.PI * 2);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#334155';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(peepCenterX, peepCenterY, peepRadius + 7, 0, Math.PI * 2);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#1e293b';
+      ctx.stroke();
+
+      // Center alignment guidelines if enabled
+      if (state.showGuideLines) {
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1;
+        // Center crosshairs through circular peep aperture
+        ctx.beginPath();
+        ctx.moveTo(peepCenterX - peepRadius * 0.25, peepCenterY);
+        ctx.lineTo(peepCenterX + peepRadius * 0.25, peepCenterY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(peepCenterX, peepCenterY - peepRadius * 0.25);
+        ctx.lineTo(peepCenterX, peepCenterY + peepRadius * 0.25);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+
+      // 3. Draw Muzzle Flash if active
+      if (state.muzzleFlash > 0) {
+        state.muzzleFlash--;
+        ctx.save();
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.4)';
+        ctx.fillRect(0, 0, w, h);
+        const flashGrad = ctx.createRadialGradient(sightX, sightY + 10, 5, sightX, sightY + 10, 60);
+        flashGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        flashGrad.addColorStop(0.3, 'rgba(251, 191, 36, 0.8)');
+        flashGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        ctx.fillStyle = flashGrad;
+        ctx.beginPath();
+        ctx.arc(sightX, sightY + 10, 65, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    // --- Event Listeners & User Inputs ---
+    
+    // --- Joystick Controller Logic ---
+    const joystickBase = document.getElementById('joystickBase');
+    const joystickKnob = document.getElementById('joystickKnob');
+    const toggleSensitivityBtn = document.getElementById('toggleSensitivityBtn');
+    const toggleControlModeBtn = document.getElementById('toggleControlModeBtn');
+
+    function updateJoystickPosition(clientX, clientY) {
+      const rect = joystickBase.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      let dx = clientX - centerX;
+      let dy = clientY - centerY;
+      const dist = Math.hypot(dx, dy);
+      const maxR = state.joystick.maxRadius;
+
+      if (dist > maxR) {
+        const ratio = maxR / dist;
+        dx *= ratio;
+        dy *= ratio;
+      }
+
+      state.joystick.deltaX = dx / maxR;
+      state.joystick.deltaY = dy / maxR;
+
+      joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    }
+
+    function resetJoystick() {
+      state.joystick.active = false;
+      state.joystick.touchId = null;
+      state.joystick.deltaX = 0;
+      state.joystick.deltaY = 0;
+      joystickKnob.style.transform = 'translate(-50%, -50%)';
+    }
+
+    // Mouse drag on joystick
+    joystickBase.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      state.joystick.active = true;
+      updateJoystickPosition(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (state.joystick.active) {
+        updateJoystickPosition(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (state.joystick.active) {
+        resetJoystick();
+      }
+    });
+
+    // Touch drag on joystick (Mobile / Tablet)
+    joystickBase.addEventListener('touchstart', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        state.joystick.active = true;
+        state.joystick.touchId = touch.identifier;
+        updateJoystickPosition(touch.clientX, touch.clientY);
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (state.joystick.active) {
+        for (let i = 0; i < e.touches.length; i++) {
+          if (e.touches[i].identifier === state.joystick.touchId) {
+            updateJoystickPosition(e.touches[i].clientX, e.touches[i].clientY);
+            break;
+          }
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (state.joystick.active) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === state.joystick.touchId) {
+            resetJoystick();
+            break;
+          }
+        }
+      }
+    });
+
+    // Toggle sensitivity
+    toggleSensitivityBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.joystick.sensitivity === 'normal') {
+        state.joystick.sensitivity = 'fine';
+        toggleSensitivityBtn.textContent = '🎯 瞄準微調';
+        toggleSensitivityBtn.className = 'text-amber-400 hover:text-amber-300 underline font-bold cursor-pointer';
+      } else {
+        state.joystick.sensitivity = 'normal';
+        toggleSensitivityBtn.textContent = '標準速度';
+        toggleSensitivityBtn.className = 'text-emerald-400 hover:text-emerald-300 underline font-bold cursor-pointer';
+      }
+    });
+
+    // Toggle control mode (Joystick vs Mouse)
+    toggleControlModeBtn.addEventListener('click', () => {
+      if (state.controlMode === 'joystick') {
+        state.controlMode = 'mouse';
+        toggleControlModeBtn.innerHTML = '🖱️ 控制方式：滑鼠直接瞄準';
+        toggleControlModeBtn.className = 'px-2.5 py-1 rounded bg-sky-900/60 border border-sky-600 text-sky-200 font-medium transition-colors';
+      } else {
+        state.controlMode = 'joystick';
+        toggleControlModeBtn.innerHTML = '🕹️ 控制方式：搖桿/方向鍵';
+        toggleControlModeBtn.className = 'px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium transition-colors';
+      }
+    });
+
+    // Mouse movement inside canvas (only moves aim in mouse mode)
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      state.mouse.x = e.clientX - rect.left;
+      state.mouse.y = e.clientY - rect.top;
+      if (state.controlMode === 'mouse') {
+        state.aimPos.x = state.mouse.x;
+        state.aimPos.y = state.mouse.y;
+      }
+    });
+
+    // Mouse click to shoot
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) { // left click
+        triggerShot();
+      }
+    });
+
+    // Touch support for mobile devices
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      if (e.touches.length > 0) {
+        state.mouse.x = e.touches[0].clientX - rect.left;
+        state.mouse.y = e.touches[0].clientY - rect.top;
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchstart', (e) => {
+      initAudio();
+      const rect = canvas.getBoundingClientRect();
+      if (e.touches.length > 0) {
+        state.mouse.x = e.touches[0].clientX - rect.left;
+        state.mouse.y = e.touches[0].clientY - rect.top;
+      }
+    });
+
+    // Keyboard controls: WASD / Arrow keys for joystick aim, Space/Shift for breath, Enter for shoot
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyW' || e.key === 'ArrowUp') {
+        state.keyMovement.y = -1;
+        state.keyMovement.active = true;
+        e.preventDefault();
+      }
+      if (e.code === 'KeyS' || e.key === 'ArrowDown') {
+        state.keyMovement.y = 1;
+        state.keyMovement.active = true;
+        e.preventDefault();
+      }
+      if (e.code === 'KeyA' || e.key === 'ArrowLeft') {
+        state.keyMovement.x = -1;
+        state.keyMovement.active = true;
+        e.preventDefault();
+      }
+      if (e.code === 'KeyD' || e.key === 'ArrowRight') {
+        state.keyMovement.x = 1;
+        state.keyMovement.active = true;
+        e.preventDefault();
+      }
+      if (e.code === 'Space' || e.key === 'Shift') {
+        if (!state.holdingBreath) {
+          state.holdingBreath = true;
+        }
+        e.preventDefault();
+      }
+      if (e.key === 'Enter') {
+        triggerShot();
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        resetTarget();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'KeyW' || e.key === 'ArrowUp' || e.code === 'KeyS' || e.key === 'ArrowDown') {
+        state.keyMovement.y = 0;
+      }
+      if (e.code === 'KeyA' || e.key === 'ArrowLeft' || e.code === 'KeyD' || e.key === 'ArrowRight') {
+        state.keyMovement.x = 0;
+      }
+      if (state.keyMovement.x === 0 && state.keyMovement.y === 0) {
+        state.keyMovement.active = false;
+      }
+      if (e.code === 'Space' || e.key === 'Shift') {
+        state.holdingBreath = false;
+      }
+    });
+
+    // On-screen buttons
+    fireBtn.addEventListener('click', triggerShot);
+
+    holdBreathBtn.addEventListener('mousedown', () => { state.holdingBreath = true; });
+    holdBreathBtn.addEventListener('mouseup', () => { state.holdingBreath = false; });
+    holdBreathBtn.addEventListener('mouseleave', () => { state.holdingBreath = false; });
+    holdBreathBtn.addEventListener('touchstart', (e) => { e.preventDefault(); state.holdingBreath = true; });
+    holdBreathBtn.addEventListener('touchend', (e) => { e.preventDefault(); state.holdingBreath = false; });
+
+    // Zoom buttons
+    zoom1xBtn.addEventListener('click', () => {
+      state.zoom = 1;
+      zoom1xBtn.className = 'px-2.5 py-1 rounded bg-slate-700 text-white font-bold transition-colors';
+      zoom3xBtn.className = 'px-2.5 py-1 rounded text-slate-400 hover:text-white font-medium transition-colors';
+    });
+
+    zoom3xBtn.addEventListener('click', () => {
+      state.zoom = 3;
+      zoom3xBtn.className = 'px-2.5 py-1 rounded bg-slate-700 text-white font-bold transition-colors';
+      zoom1xBtn.className = 'px-2.5 py-1 rounded text-slate-400 hover:text-white font-medium transition-colors';
+    });
+
+    // Checkboxes
+    showGuideCheck.addEventListener('change', (e) => {
+      state.showGuideLines = e.target.checked;
+    });
+
+    enableSwayCheck.addEventListener('change', (e) => {
+      state.enableSway = e.target.checked;
+    });
+
+    // Aim guideline select
+    aimGuidelineSelect.addEventListener('change', (e) => {
+      state.aimGuideline = e.target.value;
+    });
+
+    // Zero preset radios
+    document.querySelectorAll('input[name="zeroPreset"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        state.zeroPreset = e.target.value;
+        if (state.zeroPreset === 'wind') {
+          windText.textContent = '3級右側風 (約 3.5 m/s)';
+        } else {
+          windText.textContent = '無風 (0 m/s)';
+        }
+      });
+    });
+
+    // Audio Toggle
+    audioToggleBtn.addEventListener('click', () => {
+      initAudio();
+      state.audioEnabled = !state.audioEnabled;
+      if (state.audioEnabled) {
+        audioIcon.textContent = '🔊';
+        audioText.textContent = '音效：開啟';
+      } else {
+        audioIcon.textContent = '🔇';
+        audioText.textContent = '音效：靜音';
+      }
+    });
+
+    // Reset Target & Stats
+    manualResetTargetBtn.addEventListener('click', resetTarget);
+    resetStatsBtn.addEventListener('click', () => {
+      state.shotsFired = 0;
+      state.hits = 0;
+      state.shotHistory = [];
+      updateStatsUI();
+      renderShotMarkers();
+      lastShotVerdict.textContent = '尚未擊發';
+      lastShotVerdict.className = 'text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300';
+      poaText.textContent = '-';
+      poiText.textContent = '-';
+      analysisText.textContent = '紀錄已清空';
+    });
+
+    // Mode Switchers
+    modePracticeBtn.addEventListener('click', () => {
+      state.mode = 'practice';
+      modePracticeBtn.className = 'px-3 py-1.5 rounded-md font-medium bg-emerald-600 text-white transition-colors';
+      modeQualBtn.className = 'px-3 py-1.5 rounded-md font-medium text-slate-300 hover:text-white transition-colors';
+      qualAmmoBox.classList.add('hidden');
+      qualAmmoBox.classList.remove('flex');
+    });
+
+    modeQualBtn.addEventListener('click', () => {
+      startQualificationTest();
+    });
+
+    function startQualificationTest() {
+      state.mode = 'qualification';
+      state.qualRoundsRemaining = 6;
+      state.qualHits = 0;
+      qualAmmoCount.textContent = `6 / 6`;
+      modeQualBtn.className = 'px-3 py-1.5 rounded-md font-medium bg-emerald-600 text-white transition-colors';
+      modePracticeBtn.className = 'px-3 py-1.5 rounded-md font-medium text-slate-300 hover:text-white transition-colors';
+      qualAmmoBox.classList.remove('hidden');
+      qualAmmoBox.classList.add('flex');
+      resetTarget();
+    }
+
+    qualRetryBtn.addEventListener('click', () => {
+      qualModal.classList.add('hidden');
+      startQualificationTest();
+    });
+
+    qualCloseBtn.addEventListener('click', () => {
+      qualModal.classList.add('hidden');
+      modePracticeBtn.click();
+    });
+
+    // Guide Modal
+    openGuideBtn.addEventListener('click', () => {
+      guideModal.classList.remove('hidden');
+    });
+
+    closeGuideBtn.addEventListener('click', () => {
+      guideModal.classList.add('hidden');
+    });
+
+    closeGuideBottomBtn.addEventListener('click', () => {
+      guideModal.classList.add('hidden');
+    });
+
+    // --- Initialization ---
+    window.onload = () => {
+      resizeCanvas();
+      // Default mouse to center of target
+      const rect = canvas.getBoundingClientRect();
+      state.mouse.x = rect.width / 2;
+      // Default aim height: at human silhouette's navel / center mass
+      state.mouse.y = state.targetCenter.y + (34 / 2) * 0.68;
+      state.aimPos.x = state.mouse.x;
+      state.aimPos.y = state.mouse.y;
+
+      requestAnimationFrame(renderLoop);
+    };
+  </script>
+</body>
+</html>
